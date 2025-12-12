@@ -127,7 +127,7 @@ if __name__ == '__main__':
         if len(sys.argv) > 1:
             targets_dir = sys.argv[1]
         else:
-            targets_dir = '/'
+            targets_dir = './'
         targets = list(map(lambda x: x.replace('\\', '/'), glob(targets_dir + '*.test*')))
         if len(targets) == 0:
             raise Exception("No *.testpass or *.testfail files found in '%s'" % targets_dir)

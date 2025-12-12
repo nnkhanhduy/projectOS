@@ -30,7 +30,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     steps:
       - name: Checkout repository
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           fetch-depth: 0  # Fetch all tags
 
@@ -73,7 +73,7 @@ jobs:
           tar -xvf "${{ env.LLVM }}.tar.xz"
 
       - name: Checkout bpftool code
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           submodules: recursive
           # Create a new directory to avoid wiping out LLVM on bpftool checkout
@@ -161,7 +161,7 @@ jobs:
           sha256sum "${archive_arm64}" > "${archive_arm64}.sha256sum"
 
       - name: Checkout bpftool and libbpf code
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           submodules: recursive
           path: 'bpftool'
@@ -175,7 +175,7 @@ jobs:
           base-repo: bpftool
 
       - name: Create draft release and add artifacts
-        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
+        uses: softprops/action-gh-release@5be0e66d93ac7ed76da52eca8bb058f665c3a5fe # v2.4.2
         with:
           draft: true
           files: bpftool*

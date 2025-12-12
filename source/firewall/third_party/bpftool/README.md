@@ -1,4 +1,4 @@
-<a href=".github/assets">
+<a href=".github/assets/">
   <div>
     <img src=".github/assets/bpftool_horizontal_color.svg"
          alt="bpftool logo: Hannah the Honeyguide"

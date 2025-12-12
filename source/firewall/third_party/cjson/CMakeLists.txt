@@ -1,5 +1,5 @@
 set(CMAKE_LEGACY_CYGWIN_WIN32 0)
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.28)
 
 project(cJSON
     VERSION 1.7.19
@@ -105,7 +105,7 @@ foreach(compiler_flag ${custom_compiler_flags})
     endif()
 endforeach()
 
-option(BUILD_SHARED_LIBS "Build shared libraries" ON)
+option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
 option(ENABLE_TARGET_EXPORT "Enable exporting of CMake targets. Disable when it causes problems!" ON)
 
 #cJSON
@@ -237,7 +237,7 @@ if(ENABLE_TARGET_EXPORT)
         DESTINATION "${CMAKE_INSTALL_FULL_LIBDIR}/cmake/cJSON")
 endif()
 
-option(ENABLE_CJSON_TEST "Enable building cJSON test" ON)
+option(ENABLE_CJSON_TEST "Enable building cJSON test" OFF)
 if(ENABLE_CJSON_TEST)
     enable_testing()
 
