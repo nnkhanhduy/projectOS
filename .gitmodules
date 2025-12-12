@@ -1,0 +1,9 @@
+[submodule "source/firewall/third_party/libbpf"]
+	path = source/third_party/libbpf
+	url = https://github.com/libbpf/libbpf.git
+[submodule "source/firewall/bpftool"]
+	path = source/third_party/bpftool
+	url = https://github.com/libbpf/bpftool.git
+[submodule "source/firewallthird_party/cjson"]
+	path = source/third_party/cjson
+	url = https://github.com/DaveGamble/cJSON.git
