@@ -8,12 +8,13 @@
 
 char LICENSE[] SEC("license") = "Dual BSD/GPL";
 
-
+// MAP LÀ CTDL GIÚP USERSPACE VÀ KERNEL GIAO TIẾP
+// 1. firewall event -> lưu lại log gửi về daemon
 struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
     __uint(max_entries, 1 << 24);
 } firewall_events SEC(".maps");
-
+// 2. dns_block_map -> Lưu danh sách tên miền cần chặn
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __uint(max_entries, 1024);
@@ -21,6 +22,7 @@ struct {
     __type(value, __u32);       // action: 1 = block
 } dns_block_map SEC(".maps");
 
+// 3. ioc_ip_map -> lưu danh sách 20k ip bị chặn
 struct {
     __uint(type, BPF_MAP_TYPE_LPM_TRIE);
     __uint(max_entries, LIMIT_IP_STORE);
@@ -28,24 +30,7 @@ struct {
     __type(value, enum ip_status);
     __uint(map_flags, BPF_F_NO_PREALLOC);
 } ioc_ip_map SEC(".maps");
-// struct {
-//     __uint(type, BPF_MAP_TYPE_HASH);
-//     __uint(max_entries, LIMIT_IP);
-//     __type(key, struct ip_lpm_key);
-//     __type(value, enum ip_status);
-// } rules_map_only_ip SEC(".maps");
-// struct {
-//     __uint(type, BPF_MAP_TYPE_HASH);
-//     __uint(max_entries, LIMIT_IP);
-//     __type(key, __u16);
-//     __type(value, enum ip_status);
-// } rules_map_only_port SEC(".maps");
-// struct {
-//     __uint(type, BPF_MAP_TYPE_HASH);
-//     __uint(max_entries, LIMIT_IP);
-//     __type(key, __u8);
-//     __type(value, enum ip_status);
-// } rules_map_only_protocol SEC(".maps");
+// 4. rule map -> lưu các luật
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __uint(max_entries, LIMIT_IP);
@@ -64,6 +49,7 @@ struct {
 static int parse_query(struct __sk_buff *skb, void *query_start, struct dns_query *q);
 //static inline int bpf_strcmplength(char *s1, char *s2, u32 n);
 
+// 5. dns_map Dùng cho dns spoofing
 struct {
   __uint(type, BPF_MAP_TYPE_HASH);
   __uint(max_entries, 1024);
@@ -135,15 +121,16 @@ int xdp_block(struct xdp_md *ctx)
     void *data     = (void *)(long)ctx->data;
     struct ethhdr *eth = data;
 
+// Nếu kích thước gói tin nhỏ hơn header ethernet -> pass
     if ((void *)(eth + 1) > data_end)
         return XDP_PASS;
 
-    __u16 h_proto = bpf_ntohs(eth->h_proto);
+    __u16 h_proto = bpf_ntohs(eth->h_proto); // protocol v4/v6
 
     struct ip_lpm_key lpm_key = {};
     struct rule_key full_key = {};
 
-//IPV4
+//IPV4 -> Trích xuất ip nguồn , ip đích, protocol tcp/udp -> vào layer transport để lấy port nguồn và đích
     if (h_proto == ETH_P_IP) {
         struct iphdr *ip4 = (void *)(eth + 1);
         if ((void *)(ip4 + 1) > data_end)

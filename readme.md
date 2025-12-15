@@ -1,3 +1,5 @@
+### Hướng dẫn chạy:
+Cài thirdparty
 ``` bash
 
 git submodule update --init --recursive
@@ -26,24 +28,23 @@ sudo apt install clang llvm
 sudo apt install -y libssl-dev
 sudo apt install -y libboost-all-dev
 
-
-### Chạy chương trình (FireWall)
-```bash
-cd source/firewall 
-mkdir build && cd build
-cmake .. && make 
-sudo ./firewall
-```
-
 ### Cấu hình hỗ trợ eBPF cho một số bản kernel chưa cấu hình
 - Kiểm tra kernel có hỗ trợ bpf không 
 ```bash
     grep CONFIG_BPF /boot/config-$(uname -r)
 ```
 
+### Chạy chương trình (FireWall)
+```bash
+cd source/firewall 
+mkdir build && cd build
+cmake .. && make 
+sudo ./firewall_linux
+```
 
 
 ### Khởi động firewall_control
+Giữ terminal cũ chạy firewall, Tạo terminal mới chạy song song các lệnh dưới đây:
 ```bash
 cd source/firewall_control
 mkdir build && cd build
