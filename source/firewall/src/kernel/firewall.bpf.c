@@ -59,18 +59,18 @@ struct {
 // static function
 
 
-// Đẩy thông tin log (IP bị chặn) vào Ring Buffer để gửi lên User Space
+// Đẩy thông tin log (IP bị chặn) vào Ring Buffer để gửi lên User Space , eBPF không cho phép function call tự do
 static __always_inline void send_event(enum firewall_event_type type, void *data) {
     struct ioc_event *evt;
 
+//reverse vùng nhớ trong ring buffer
     evt = bpf_ringbuf_reserve(&firewall_events, sizeof(*evt), 0);
     if (!evt) {
         return;
     }
-
+    // verifier yêu cầu mọi byte phải được khởi tao
     __builtin_memset(evt, 0, sizeof(*evt));
     evt->timestamp_ns = bpf_ktime_get_ns();
-
     evt->type = type;
 
     // Copy payload 
@@ -116,7 +116,7 @@ int xdp_block(struct xdp_md *ctx)
 {
     struct net_payload np = {};
     np.status = ALLOW;
-
+    // truy cập toan bo packet
     void *data_end = (void *)(long)ctx->data_end;
     void *data     = (void *)(long)ctx->data;
     struct ethhdr *eth = data;
@@ -135,33 +135,30 @@ int xdp_block(struct xdp_md *ctx)
         struct iphdr *ip4 = (void *)(eth + 1);
         if ((void *)(ip4 + 1) > data_end)
             return XDP_PASS;
-        if (ip4->ihl < 5)
+        if (ip4->ihl < 5) // Do ipv4 toi thieu 20 bytes
             return XDP_PASS;
 
+        // build lpm key cho ioc
         lpm_key.prefixlen = 32;
         __u32 ip_be = ip4->saddr;
         __builtin_memcpy(lpm_key.data, &ip_be, 4);
 
         np.family   = AF_INET;
-        np.saddr_v4 = ip4->saddr;   
-
+        np.saddr_v4 = ip4->saddr;
         np.protocol = ip4->protocol;
 
-        void *l4 = (void *)ip4 + ip4->ihl * 4;
+        void *l4 = (void *)ip4 + ip4->ihl * 4;//layer 4
         if (l4 + 1 > data_end)
             return XDP_PASS;
-
+        // Parse TCP
         if (ip4->protocol == IPPROTO_TCP) {
             struct tcphdr *th = l4;
             if ((void *)(th + 1) > data_end)
                 return XDP_PASS;
-            // bpf_printk("TCP src=%u dst=%u ihl=%d tot_len=%u\n",
-            //             bpf_ntohs(th->source),
-            //             bpf_ntohs(th->dest),
-            //             ip4->ihl,
-            //             bpf_ntohs(ip4->tot_len));
+            // chuyển endian
             np.src_port = bpf_ntohs(th->source);
             np.dport    = bpf_ntohs(th->dest);
+        // Parse UDP
         } else if (ip4->protocol == IPPROTO_UDP) {
             struct udphdr *uh = l4;
             if ((void *)(uh + 1) > data_end)
@@ -169,12 +166,10 @@ int xdp_block(struct xdp_md *ctx)
             np.src_port = bpf_ntohs(uh->source);
             np.dport    = bpf_ntohs(uh->dest);
         }
-
+        // Build rule key cho firewall
         full_key.ip_version = 4;
         __builtin_memcpy(&full_key.src.data, &ip4->saddr, 4);
         full_key.src.prefixlen = 32;
-        // __builtin_memcpy(&full_key.dst.data, &ip4->daddr, 4);
-        // full_key.dst.prefixlen = 32;
         full_key.protocol = ip4->protocol;
         full_key.src_port = np.src_port;
         full_key.dst_port = np.dport;
@@ -188,6 +183,7 @@ int xdp_block(struct xdp_md *ctx)
             return XDP_PASS;
 
         lpm_key.prefixlen = 128;
+        // ipv6 saddr = 16
         __builtin_memcpy(lpm_key.data, &ip6->saddr, 16);
         np.family   = AF_INET6;
         __builtin_memcpy(np.saddr_v6, &ip6->saddr, 16);
@@ -232,17 +228,14 @@ int xdp_block(struct xdp_md *ctx)
     }
     // drop if DENY
     if (np.status == DENY) {
-        bpf_printk("chekc check check\n");
+        bpf_printk("chek check check\n");
         send_event(FIREWALL_EVT_BLOCKED_IP, &np);
         return XDP_DROP;
     }
-    // example dst_port = 80
-    // if (np.dport == 80) {
-    //     // bpf_printk("debug view kernel XDP packet: dst_port=80, drop it\n");
-    //     return XDP_DROP;
-    // }
+
     /* -------------------- Lookup rule -------------------- */
     // (ip=any, port=any, protocol=any, dst_port)
+    // Xét trường hợp dst_port
     struct rule_key full_key_0_0_0_1 = {};
     __builtin_memcpy(&full_key_0_0_0_1, &full_key, sizeof(full_key));
     __builtin_memset(&full_key_0_0_0_1.src.data, 0, sizeof(full_key_0_0_0_1.src.data)); // any ip
@@ -257,25 +250,7 @@ int xdp_block(struct xdp_md *ctx)
             return XDP_DROP;
         } 
     }
-    // print debug full_key and full_key_0_0_0_1
-    // bpf_printk("debug view kernel XDP full_key: ip_version=%d src_ip=%x src_port=%d protocol=%d dst_port=%d\n",
-    //             full_key.ip_version,
-    //             *((__u32 *)full_key.src.data),
-    //             full_key.src_port,
-    //             full_key.protocol,
-    //             full_key.dst_port);
-    // bpf_printk("debug view kernel XDP full_key_0_0_0_1: ip_version=%d src_ip=%x src_port=%d protocol=%d dst_port=%d\n",
-    //             full_key_0_0_0_1.ip_version,
-    //             *((__u32 *)full_key_0_0_0_1.src.data),
-    //             full_key_0_0_0_1.src_port,
-    //             full_key_0_0_0_1.protocol,
-    //             full_key_0_0_0_1.dst_port);
-    // bpf_printk("debug view kernel XDP packet: family=%d protocol=%d src_port=%d dst_port=%d\n",
-    //             np.family,
-    //             np.protocol,
-    //             np.src_port,
-    //             np.dport);
-    // (ip, port, protocol=any, dst_port=any) 
+
     struct rule_key full_key_1_1_0_0 = {};
     __builtin_memcpy(&full_key_1_1_0_0, &full_key, sizeof(full_key));
     full_key_1_1_0_0.protocol = 0; // any protocol

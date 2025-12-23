@@ -6,6 +6,8 @@ extern "C" {
 }
 #include "utils.h"
 
+// Ring buffer
+//
 static volatile sig_atomic_t exiting = 0;
 static int ifindex;
 
