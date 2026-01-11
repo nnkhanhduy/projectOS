@@ -1,3 +1,0 @@
-/home/duy/OS-firewall/source/firewall_control/build/CMakeFiles/firewallctl.dir
-/home/duy/OS-firewall/source/firewall_control/build/CMakeFiles/edit_cache.dir
-/home/duy/OS-firewall/source/firewall_control/build/CMakeFiles/rebuild_cache.dir
