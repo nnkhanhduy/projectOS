@@ -51,6 +51,14 @@ build/
 bin/
 lib/
 
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+.env
+
 # Editor/IDE
 .vscode/
 .idea/

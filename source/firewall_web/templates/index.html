@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firewall Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-900 text-gray-100 min-h-screen">
+    <div id="app" class="container mx-auto px-4 py-8 max-w-7xl">
+
+        <!-- Header -->
+        <header class="mb-10 flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-bold text-white tracking-tight">OS Firewall <span
+                        class="text-indigo-500">Dashboard</span></h1>
+                <p class="text-gray-400 mt-2">Manage your eBPF firewall rules and DNS blocks in real-time.</p>
+            </div>
+            <div class="flex items-center space-x-2">
+                <span class="inline-flex h-3 w-3 rounded-full"
+                    :class="connected ? 'bg-green-500' : 'bg-red-500'"></span>
+                <span class="text-sm font-medium" v-if="connected">Daemon Connected</span>
+                <span class="text-sm font-medium" v-else>Daemon Offline</span>
+            </div>
+        </header>
+
+        <!-- Main Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+            <!-- Left Column: Forms -->
+            <div class="lg:col-span-1 space-y-8">
+
+                <!-- Add Rule Card -->
+                <div class="bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-700">
+                    <h2 class="text-xl font-semibold mb-4 text-white flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-indigo-400" fill="none"
+                            viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        Add Firewall Rule
+                    </h2>
+                    <form @submit.prevent="addRule" class="space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-400 mb-1">Source IP</label>
+                                <input v-model="newRule.src_ip" type="text" placeholder="any or 1.2.3.4"
+                                    class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-400 mb-1">Dest IP</label>
+                                <input v-model="newRule.dst_ip" type="text" placeholder="any or 1.2.3.4"
+                                    class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-400 mb-1">Src Port</label>
+                                <input v-model="newRule.src_port" type="text" placeholder="any or 80"
+                                    class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-400 mb-1">Dst Port</label>
+                                <input v-model="newRule.dst_port" type="text" placeholder="any or 80"
+                                    class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-400 mb-1">Protocol</label>
+                                <select v-model="newRule.protocol"
+                                    class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                                    <option value="any">ANY</option>
+                                    <option value="TCP">TCP</option>
+                                    <option value="UDP">UDP</option>
+                                    <option value="ICMP">ICMP</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-400 mb-1">Action</label>
+                                <select v-model="newRule.action"
+                                    class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 transition text-red-400 font-semibold">
+                                    <option value="DENY">DENY</option>
+                                    <option value="ALLOW">ALLOW</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button type="submit" :disabled="loading"
+                            class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 rounded-lg transition duration-200 flex justify-center items-center shadow-md">
+                            <span v-if="!loading">Add Rule</span>
+                            <span v-else
+                                class="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></span>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- DNS Block Card -->
+                <div class="bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-700">
+                    <h2 class="text-xl font-semibold mb-4 text-white flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-yellow-400" fill="none"
+                            viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                        Block Domain (DNS)
+                    </h2>
+                    <form @submit.prevent="blockDomain" class="flex gap-2">
+                        <input v-model="newDomain" type="text" placeholder="example.com"
+                            class="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 transition">
+                        <button type="submit"
+                            class="bg-yellow-600 hover:bg-yellow-700 text-white font-medium px-4 py-2 rounded-lg transition shadow-md">Block</button>
+                    </form>
+                </div>
+
+            </div>
+
+            <!-- Right Column: Lists -->
+            <div class="lg:col-span-2 space-y-8">
+
+                <!-- Rules Table -->
+                <div class="bg-gray-800 rounded-xl shadow-lg border border-gray-700 overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-700 flex justify-between items-center bg-gray-800/50">
+                        <h2 class="text-lg font-semibold text-white">Active Firewall Rules</h2>
+                        <button @click="fetchRules" class="text-gray-400 hover:text-white transition">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm text-gray-300">
+                            <thead class="bg-gray-900/50 text-xs uppercase text-gray-500 font-medium">
+                                <tr>
+                                    <th class="px-6 py-3">Source</th>
+                                    <th class="px-6 py-3">Dest</th>
+                                    <th class="px-6 py-3">Proto</th>
+                                    <th class="px-6 py-3">Action</th>
+                                    <th class="px-6 py-3 text-right">Manage</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-700">
+                                <tr v-for="(rule, index) in rules" :key="index"
+                                    class="hover:bg-gray-700/50 transition duration-150">
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="font-medium text-white" v-text="rule.src_ip"></div>
+                                        <div class="text-xs text-gray-500" v-text="'Port: ' + rule.src_port"></div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="font-medium text-white" v-text="rule.dst_ip"></div>
+                                        <div class="text-xs text-gray-500" v-text="'Port: ' + rule.dst_port"></div>
+                                    </td>
+                                    <td class="px-6 py-4" v-text="rule.protocol"></td>
+                                    <td class="px-6 py-4">
+                                        <span
+                                            class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                                            :class="rule.action === 'ALLOW' ? 'bg-green-100/10 text-green-400' : 'bg-red-100/10 text-red-400 border border-red-500/30'"
+                                            v-text="rule.action">
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 text-right">
+                                        <button @click="deleteRule(rule)"
+                                            class="text-red-400 hover:text-red-300 transition p-1 rounded hover:bg-red-500/10">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none"
+                                                viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr v-if="rules.length === 0">
+                                    <td colspan="5" class="px-6 py-8 text-center text-gray-500">
+                                        No active rules found.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- DNS List -->
+                <div class="bg-gray-800 rounded-xl shadow-lg border border-gray-700 p-6">
+                    <h3 class="text-lg font-semibold text-white mb-4">Blocked Domains</h3>
+                    <div class="flex flex-wrap gap-2">
+                        <span v-for="domain in dnsRules" :key="domain"
+                            class="inline-flex items-center px-3 py-1 rounded-lg text-sm font-medium bg-yellow-900/30 text-yellow-500 border border-yellow-700/50"
+                            v-text="domain">
+                        </span>
+                        <span v-if="dnsRules.length === 0" class="text-gray-500 italic text-sm">No domains blocked
+                            yet.</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue
+
+        createApp({
+            data() {
+                return {
+                    rules: [],
+                    dnsRules: [],
+                    connected: false,
+                    loading: false,
+                    newRule: {
+                        src_ip: 'any',
+                        dst_ip: 'any',
+                        src_port: 'any',
+                        dst_port: 'any',
+                        protocol: 'any',
+                        action: 'DENY'
+                    },
+                    newDomain: ''
+                }
+            },
+            methods: {
+                async fetchRules() {
+                    try {
+                        const res = await fetch('/api/rules');
+                        this.rules = await res.json();
+                        this.connected = true; // Assume connected if fetch works
+                    } catch (e) {
+                        console.error(e);
+                        this.connected = false;
+                    }
+                },
+                async fetchDNS() {
+                    try {
+                        const res = await fetch('/api/dns');
+                        this.dnsRules = await res.json();
+                    } catch (e) { console.error(e); }
+                },
+                async addRule() {
+                    this.loading = true;
+                    try {
+                        const res = await fetch('/api/rules', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(this.newRule)
+                        });
+                        const data = await res.json();
+                        if (data.status === 'ok') {
+                            await this.fetchRules();
+                            // Reset form (optional)
+                        } else {
+                            alert('Error: ' + data.msg);
+                        }
+                    } catch (e) {
+                        alert('Network Error');
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+                async deleteRule(rule) {
+                    if (!confirm('Delete this rule?')) return;
+                    try {
+                        const res = await fetch('/api/rules', {
+                            method: 'DELETE',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(rule)
+                        });
+                        const data = await res.json();
+                        if (data.status === 'ok') {
+                            await this.fetchRules();
+                        } else {
+                            alert('Error: ' + data.msg);
+                        }
+                    } catch (e) { alert('Network Error'); }
+                },
+                async blockDomain() {
+                    if (!this.newDomain) return;
+                    try {
+                        const res = await fetch('/api/dns/block', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ domain: this.newDomain })
+                        });
+                        const data = await res.json();
+                        if (data.status === 'ok') {
+                            this.newDomain = '';
+                            await this.fetchDNS();
+                        } else {
+                            alert('Error: ' + data.msg);
+                        }
+                    } catch (e) { alert('Network Error'); }
+                }
+            },
+            mounted() {
+                this.fetchRules();
+                this.fetchDNS();
+                setInterval(this.fetchRules, 5000); // Polling update
+            }
+        }).mount('#app')
+    </script>
+</body>
+
+</html>
