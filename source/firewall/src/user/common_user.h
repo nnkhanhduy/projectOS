@@ -165,7 +165,7 @@ struct dns_hdr
     uint16_t ans_count;  //Number of answer RRs
     uint16_t auth_count; //Number of authority RRs
     uint16_t add_count;  //Number of resource RRs
-};
+} __attribute__((packed));
 
 //Used as a generic DNS response
 struct dns_response {

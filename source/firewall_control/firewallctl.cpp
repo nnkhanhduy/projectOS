@@ -135,6 +135,15 @@ char *build_list_json(const char *config_path) {
     return json_str;
 }
 
+char *build_block_domain_json(const char *domain) {
+    cJSON *root = cJSON_CreateObject();
+    cJSON_AddStringToObject(root, "cmd", "block_domain");
+    cJSON_AddStringToObject(root, "domain", domain);
+    char *json_str = cJSON_PrintUnformatted(root);
+    cJSON_Delete(root);
+    return json_str;
+}
+
 // ==============================
 // 🔹 CLI usage
 // ==============================
@@ -142,6 +151,7 @@ void print_usage(const char *prog) {
     printf("Usage:\n");
     printf("  %s add --src_ip <ip> --dst_ip <ip> --src_port <p> --dst_port <p> --protocol <tcp|udp> --action <ALLOW|DENY>\n", prog);
     printf("  %s del <rule_id>\n", prog);
+    printf("  %s block_domain --domain <domain>\n", prog);
     printf("  %s list\n", prog);
 }
 
@@ -192,6 +202,17 @@ int main(int argc, char **argv) {
     } else if (strcmp(cmd, "list") == 0) {
         json_str = build_list_json("/home/quang/lib/mid-project-654642330/source/firewall/configs/firewall_configs.json");
         printf("%s\n", json_str);
+
+    } else if(strcmp(cmd, "block_domain") == 0) {
+        char *domain = NULL;
+        for (int i = 2; i < argc; i++) {
+             if (!strcmp(argv[i], "--domain") && i + 1 < argc) domain = argv[++i];
+        }
+        if(!domain) {
+            print_usage(argv[0]);
+            return 1;
+        }
+        json_str = build_block_domain_json(domain);
     } else {
         print_usage(argv[0]);
         return 1;

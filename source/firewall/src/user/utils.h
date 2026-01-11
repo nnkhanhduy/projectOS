@@ -27,4 +27,5 @@ bool append_rule_to_json(const char *filepath,
                          const char *action);
 int load_dns_ioc_map(struct firewall_bpf *skel, const char *json_path);
 bool load_ioc_ip_into_kernel_map(struct firewall_bpf *skel, const std::string &path);
+bool to_dns_wire_format(const char *domain, char *out, size_t out_size);
 #endif // __UTILS_H

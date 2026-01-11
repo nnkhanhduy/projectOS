@@ -148,8 +148,8 @@ foreach(app_item ${apps})
     add_dependencies(${MAIN_EXECUTABLE_NAME} ${app_stem_item}_skel)
 endforeach()
 
-set(DEFAULT_POLICY_FILE_PATH "/var/lib/firewal_linux/firewall_configs.json" CACHE STRING "Default path to self defense policy JSON file")
-target_compile_definitions(firewal_linux PRIVATE DEFAULT_POLICY_FILE_PATH=\"${DEFAULT_POLICY_FILE_PATH}\")
+set(DEFAULT_POLICY_FILE_PATH "/var/lib/firewall_linux/firewall_configs.json" CACHE STRING "Default path to self defense policy JSON file")
+target_compile_definitions(firewall_linux PRIVATE DEFAULT_POLICY_FILE_PATH=\"${DEFAULT_POLICY_FILE_PATH}\")
 configure_file("${CMAKE_SOURCE_DIR}/configs/firewall_configs.json"
                "${CMAKE_BINARY_DIR}/firewall_configs.json"
                COPYONLY)

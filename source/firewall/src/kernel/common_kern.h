@@ -118,7 +118,7 @@ struct dns_hdr {
     uint16_t ans_count;            // Số bản ghi trả lời
     uint16_t auth_count;           // Số authority record
     uint16_t add_count;            // Số additional record
-};
+} __attribute__((packed));
 
 struct dns_response {
    uint16_t query_pointer;         // Con trỏ đến query

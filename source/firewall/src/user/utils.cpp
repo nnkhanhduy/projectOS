@@ -379,19 +379,20 @@ int load_dns_ioc_map(struct firewall_bpf *skel, const char *json_path)
             continue;
         }
 
+
         // --- Map key ---
         char key[MAX_DNS_NAME_LENGTH] = {0};
-        strncpy(key, domain, MAX_DNS_NAME_LENGTH - 1);
+        if (!to_dns_wire_format(domain, key, sizeof(key))) {
+            std::cerr << "[SKIP] Invalid domain format: " << domain << std::endl;
+            failed++;
+            continue;
+        }
 
         // --- Map value ---
-        struct dns_replace val = {};
-        strncpy((char*)val.name, domain, MAX_DNS_NAME_LENGTH - 1);
-
-        // Example: block domain => arecord = 0xFFFFFFFF 
-        val.arecord = inet_addr("203.162.88.119");
+        __u32 val = 1; // Block action
 
         // --- UPDATE MAP
-        if (bpf_map__update_elem(skel->maps.dns_map,
+        if (bpf_map__update_elem(skel->maps.dns_block_map,
                                  key, sizeof(key),
                                  &val, sizeof(val),
                                  BPF_ANY) != 0)
@@ -474,5 +475,38 @@ bool load_ioc_ip_into_kernel_map(struct firewall_bpf *skel, const std::string &p
         }
     }
 
+    return true;
+}
+
+// convert "example.com" -> "\x07example\x03com\x00"
+bool to_dns_wire_format(const char *domain, char *out, size_t out_size) {
+    size_t len = strlen(domain);
+    if (len == 0 || len >= out_size - 2) return false;
+
+    const char *start = domain;
+    const char *end;
+    char *out_ptr = out;
+
+    while ((end = strchr(start, '.'))) {
+        size_t label_len = end - start;
+        if (label_len == 0 || label_len > 63) return false;
+        *out_ptr++ = (char)label_len;
+        memcpy(out_ptr, start, label_len);
+        out_ptr += label_len;
+        start = end + 1;
+    }
+    
+    // Last label
+    size_t label_len = strlen(start);
+    if (label_len > 0) {
+        if (label_len > 63) return false;
+        *out_ptr++ = (char)label_len;
+        memcpy(out_ptr, start, label_len);
+        out_ptr += label_len;
+    }
+    *out_ptr++ = 0; // Null terminator for root
+    // *out_ptr++ = 0; // Null terminator for C string (map key is exact bytes, but we likely need padding if map key is fixed size)
+    // Actually map key is fixed size char array. 
+    // memset remainder to 0?
     return true;
 }

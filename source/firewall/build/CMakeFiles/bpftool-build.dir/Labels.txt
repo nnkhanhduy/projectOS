@@ -1,0 +1,11 @@
+# Target labels
+ bpftool
+# Source files and their labels
+/home/duy/OS-firewall/source/firewall/build/CMakeFiles/bpftool-build
+/home/duy/OS-firewall/source/firewall/build/CMakeFiles/bpftool-build.rule
+/home/duy/OS-firewall/source/firewall/build/bpftool/src/bpftool-stamp/bpftool-build.rule
+/home/duy/OS-firewall/source/firewall/build/bpftool/src/bpftool-stamp/bpftool-configure.rule
+/home/duy/OS-firewall/source/firewall/build/bpftool/src/bpftool-stamp/bpftool-patch.rule
+/home/duy/OS-firewall/source/firewall/build/bpftool/src/bpftool-stamp/bpftool-update.rule
+/home/duy/OS-firewall/source/firewall/build/bpftool/src/bpftool-stamp/bpftool-download.rule
+/home/duy/OS-firewall/source/firewall/build/bpftool/src/bpftool-stamp/bpftool-mkdir.rule

@@ -1,0 +1,37 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "/home/duy/OS-firewall/source/firewall/build/CMakeFiles/bpftool-build"
+		},
+		{
+			"file" : "/home/duy/OS-firewall/source/firewall/build/CMakeFiles/bpftool-build.rule"
+		},
+		{
+			"file" : "/home/duy/OS-firewall/source/firewall/build/bpftool/src/bpftool-stamp/bpftool-build.rule"
+		},
+		{
+			"file" : "/home/duy/OS-firewall/source/firewall/build/bpftool/src/bpftool-stamp/bpftool-configure.rule"
+		},
+		{
+			"file" : "/home/duy/OS-firewall/source/firewall/build/bpftool/src/bpftool-stamp/bpftool-patch.rule"
+		},
+		{
+			"file" : "/home/duy/OS-firewall/source/firewall/build/bpftool/src/bpftool-stamp/bpftool-update.rule"
+		},
+		{
+			"file" : "/home/duy/OS-firewall/source/firewall/build/bpftool/src/bpftool-stamp/bpftool-download.rule"
+		},
+		{
+			"file" : "/home/duy/OS-firewall/source/firewall/build/bpftool/src/bpftool-stamp/bpftool-mkdir.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"bpftool"
+		],
+		"name" : "bpftool-build"
+	}
+}

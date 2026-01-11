@@ -1,0 +1,23 @@
+/home/duy/OS-firewall/source/firewall/build/bpftool/bootstrap/btf.o: \
+ btf.c \
+ /home/duy/OS-firewall/source/firewall/third_party/bpftool/include/linux/err.h \
+ /home/duy/OS-firewall/source/firewall/third_party/bpftool/include/linux/types.h \
+ /home/duy/OS-firewall/source/firewall/third_party/bpftool/include/uapi/linux/btf.h \
+ /home/duy/OS-firewall/source/firewall/build/bpftool/bootstrap/libbpf/include/bpf/bpf.h \
+ /home/duy/OS-firewall/source/firewall/third_party/bpftool/include/uapi/linux/bpf.h \
+ /home/duy/OS-firewall/source/firewall/third_party/bpftool/include/uapi/linux/bpf_common.h \
+ /home/duy/OS-firewall/source/firewall/build/bpftool/bootstrap/libbpf/include/bpf/libbpf_common.h \
+ /home/duy/OS-firewall/source/firewall/build/bpftool/bootstrap/libbpf/include/bpf/libbpf_version.h \
+ /home/duy/OS-firewall/source/firewall/build/bpftool/bootstrap/libbpf/include/bpf/libbpf_legacy.h \
+ /home/duy/OS-firewall/source/firewall/build/bpftool/bootstrap/libbpf/include/bpf/btf.h \
+ /home/duy/OS-firewall/source/firewall/build/bpftool/bootstrap/libbpf/include/bpf/hashmap.h \
+ /home/duy/OS-firewall/source/firewall/build/bpftool/bootstrap/libbpf/include/bpf/libbpf.h \
+ json_writer.h \
+ /home/duy/OS-firewall/source/firewall/third_party/bpftool/include/linux/compiler.h \
+ /home/duy/OS-firewall/source/firewall/third_party/bpftool/include/linux/compiler_types.h \
+ /home/duy/OS-firewall/source/firewall/third_party/bpftool/include/linux/compiler-gcc.h \
+ main.h \
+ /home/duy/OS-firewall/source/firewall/build/bpftool/bootstrap/libbpf/include/bpf/skel_internal.h \
+ /home/duy/OS-firewall/source/firewall/build/bpftool/bootstrap/libbpf/include/bpf/bpf.h \
+ /home/duy/OS-firewall/source/firewall/third_party/bpftool/include/linux/kernel.h \
+ /home/duy/OS-firewall/source/firewall/third_party/bpftool/include/linux/build_bug.h

@@ -20,6 +20,8 @@ UnixServer::UnixServer(const std::string &socket_path, struct firewall_bpf *skel
       running_(false),
       skel_(skel) {}
 
+
+
 UnixServer::~UnixServer() {
     stop();
 }
@@ -227,6 +229,36 @@ void UnixServer::handleClient(int client_fd) {
 
         std::string ok = "{\"status\":\"ok\"}";
         write(client_fd, ok.c_str(), ok.size());
+    }
+    else if (command == "block_domain") {
+        const char *domain = cJSON_GetObjectItem(root, "domain")->valuestring;
+        if (!domain) {
+            std::string err = "{\"status\":\"error\",\"msg\":\"missing_domain\"}";
+            write(client_fd, err.c_str(), err.size());
+            cJSON_Delete(root);
+            return;
+        }
+        
+
+        
+        char key[MAX_DNS_NAME_LENGTH] = {0};
+        if (!to_dns_wire_format(domain, key, sizeof(key))) {
+             std::string err = "{\"status\":\"error\",\"msg\":\"invalid_domain_format\"}";
+             write(client_fd, err.c_str(), err.size());
+             cJSON_Delete(root);
+             return;
+        }
+
+        __u32 value = 1;
+        
+        if (bpf_map__update_elem(skel_->maps.dns_block_map, &key, sizeof(key), &value, sizeof(value), BPF_ANY) != 0) {
+             perror("Failed to update dns_block_map");
+             std::string err = "{\"status\":\"error\",\"msg\":\"bpf_update_failed\"}";
+             write(client_fd, err.c_str(), err.size());
+        } else {
+             std::string ok = "{\"status\":\"ok\"}";
+             write(client_fd, ok.c_str(), ok.size());
+        }
     }
     else {
         std::string err = "{\"status\":\"error\",\"msg\":\"unknown_cmd\"}";

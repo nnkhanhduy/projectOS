@@ -117,6 +117,10 @@ int main() {
     char process_name[17] = {0};
     prctl(PR_GET_NAME, (unsigned long)process_name);
 
+    char ifname[IF_NAMESIZE] = {0}; 
+    int xdp_prog_fd = 0;
+
+
 
     // Load and verify BPF program - LOAD VÀ VERIFY CHƯƠNG TRÌNH BPF VÀO KERNEL
     skel_firewall = firewall_bpf__open_and_load();
@@ -129,18 +133,46 @@ int main() {
     load_ioc_ip_into_kernel_map(skel_firewall, "ioc_ip.txt");
     load_dns_ioc_map(skel_firewall, "ioc_dns.json");
     // Attach XDP program - GẮN CHƯƠNG TRÌNH XDP VÀO CARD MẠNG
-    err_all = firewall_bpf__attach(skel_firewall);
-    ifindex = if_nametoindex("ens33"); 
-    bpf_program__attach_xdp(skel_firewall->progs.xdp_block, ifindex);
+    // Attach XDP program - GẮN CHƯƠNG TRÌNH XDP VÀO CARD MẠNG
+    // err_all = firewall_bpf__attach(skel_firewall); // Auto-attach is failing or not flexible enough
+    
     all_val = get_all_default_ifindexes();
+    if (all_val.empty()) {
+        std::cerr << "No specific interface (looking for default route)... trying fallback or manual selection needed." << std::endl; 
+        // Fallback: try common interfaces or just fail
+        // For now, let's just create a list of candidates if default route fails, or error out.
+        // But the user error showed "Found default route on eth0", so get_all_default_ifindexes works!
+        // It's just that main.cpp wasn't using it correctly.
+        ifindex = if_nametoindex("eth0"); // Last resort fallback
+        if (ifindex == 0) {
+             std::cerr << "Failed to find suitable interface." << std::endl;
+             goto cleanup;
+        }
+    } else {
+        ifindex = all_val[0];
+    }
+    
+    if_indextoname(ifindex, ifname);
+    std::cout << "Selected interface: " << ifname << " (index: " << ifindex << ")" << std::endl;
+
+    xdp_prog_fd = bpf_program__fd(skel_firewall->progs.xdp_block);
+    // Try native mode first
+    err_all = bpf_xdp_attach(ifindex, xdp_prog_fd, XDP_FLAGS_UPDATE_IF_NOEXIST, NULL);
+    if (err_all) {
+        std::cerr << "XDP Native attach failed (" << err_all << "), trying SKB mode..." << std::endl;
+        err_all = bpf_xdp_attach(ifindex, xdp_prog_fd, XDP_FLAGS_SKB_MODE, NULL);
+    }
     
     if(err_all) {
-        std::cerr << "Failed to attach BPF program to interface ens33" << std::endl;
+        std::cerr << "Failed to attach BPF program to interface " << ifname << " (Error: " << err_all << ")" << std::endl;
         goto cleanup;
     }
+
     // Attack TC program
     // --- Add clsact for TC ---
-    system("tc qdisc add dev ens33 clsact 2>/dev/null");
+    char tc_cmd[256];
+    snprintf(tc_cmd, sizeof(tc_cmd), "tc qdisc add dev %s clsact 2>/dev/null", ifname);
+    system(tc_cmd);
 
     // --- TC Ingress ---
    
@@ -235,7 +267,9 @@ cleanup:
     }
 
     // --- Remove clsact qdisc ---
-    system("tc qdisc del dev ens33 clsact 2>/dev/null");
+    // --- Remove clsact qdisc ---
+    snprintf(tc_cmd, sizeof(tc_cmd), "tc qdisc del dev %s clsact 2>/dev/null", ifname);
+    system(tc_cmd);
 
     if (rb_firewall) {
         ring_buffer__free(rb_firewall);

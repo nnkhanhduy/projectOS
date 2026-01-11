@@ -1,0 +1,13 @@
+# Target labels
+ libbpf
+# Source files and their labels
+/home/duy/OS-firewall/source/firewall/build/CMakeFiles/libbpf
+/home/duy/OS-firewall/source/firewall/build/CMakeFiles/libbpf.rule
+/home/duy/OS-firewall/source/firewall/build/CMakeFiles/libbpf-complete.rule
+/home/duy/OS-firewall/source/firewall/build/libbpf/src/libbpf-stamp/libbpf-build.rule
+/home/duy/OS-firewall/source/firewall/build/libbpf/src/libbpf-stamp/libbpf-configure.rule
+/home/duy/OS-firewall/source/firewall/build/libbpf/src/libbpf-stamp/libbpf-download.rule
+/home/duy/OS-firewall/source/firewall/build/libbpf/src/libbpf-stamp/libbpf-install.rule
+/home/duy/OS-firewall/source/firewall/build/libbpf/src/libbpf-stamp/libbpf-mkdir.rule
+/home/duy/OS-firewall/source/firewall/build/libbpf/src/libbpf-stamp/libbpf-patch.rule
+/home/duy/OS-firewall/source/firewall/build/libbpf/src/libbpf-stamp/libbpf-update.rule

@@ -18,7 +18,7 @@ struct {
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __uint(max_entries, 1024);
-    __type(key, char[32]);      // domain name
+    __type(key, char[MAX_DNS_NAME_LENGTH]);      // domain name
     __type(value, __u32);       // action: 1 = block
 } dns_block_map SEC(".maps");
 
@@ -372,6 +372,9 @@ static inline int read_dns(struct __sk_buff *skb) {
             return 0;
         }
 
+        // ENTRY LOG
+        bpf_printk("IPv4 Packet proto=%d", iph->protocol);
+
         if (iph->protocol != IPPROTO_UDP) {
             return 0;
         }
@@ -403,8 +406,29 @@ static inline int read_dns(struct __sk_buff *skb) {
             }
             // bpf_printk("DNS packet: qr=%d opcode=%d id=%u", dns_hdr->qr, dns_hdr->opcode, bpf_ntohs(dns_hdr->transaction_id));
             // qr == 0 is a query 
+            // qr == 0 is a query 
             if (dns_hdr->qr == 0 && dns_hdr->opcode == 0){
                 // bpf_printk("DNS query transaction id %u", bpf_ntohs(dns_hdr->transaction_id));
+                void *query_start = (void *)dns_hdr + sizeof(struct dns_hdr);
+                struct dns_query q;
+                int query_length = parse_query(skb, query_start, &q);
+                
+                if (query_length > 0) {
+                     // Debug logging
+                     bpf_printk("Checking DNS Query: %s", q.name); 
+                     bpf_printk("First bytes: %d %d %d", q.name[0], q.name[1], q.name[2]);
+
+                     __u32 *verdict = bpf_map_lookup_elem(&dns_block_map, q.name);
+                     if (verdict) {
+                          bpf_printk("Verdict found: %d", *verdict);
+                          if (*verdict == 1) {
+                              bpf_printk("BLOCKING DNS Query for: %s", q.name);
+                              return TC_ACT_SHOT;
+                          }
+                     } else {
+                          bpf_printk("No verdict found for this domain");
+                     }
+                }
             }
             // qr == 1 is a response
             if (dns_hdr->qr ==1 && dns_hdr->opcode ==0 ){
@@ -556,6 +580,7 @@ static int parse_query(struct __sk_buff *skb, void *query_start, struct dns_quer
 // Hook vào luồng dữ liệu đi vào (Ingress) để xử lý DNS
 SEC("tc/ingress")
 int tc_ingress(struct __sk_buff *skb) {
+    bpf_printk("TC Ingress");
     return read_dns(skb);
 
 }

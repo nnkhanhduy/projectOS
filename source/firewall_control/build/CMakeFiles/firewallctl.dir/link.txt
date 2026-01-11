@@ -1,0 +1,1 @@
+/usr/bin/c++ -static CMakeFiles/firewallctl.dir/firewallctl.cpp.o "CMakeFiles/firewallctl.dir/home/duy/OS-firewall/source/firewall/third_party/cjson/cJSON.c.o" -o firewallctl  -lpthread 
