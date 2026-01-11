@@ -2,6 +2,7 @@
 import os
 import socket
 import json
+import subprocess
 import logging
 from flask import Flask, render_template, request, jsonify
 
@@ -104,6 +105,25 @@ def block_domain():
     resp = send_command(payload)
     return jsonify(resp)
 
+@app.route('/api/limit', methods=['POST'])
+def set_rate_limit():
+    data = request.json
+    ip = data.get("ip")
+    rate = data.get("rate")
+    capacity = data.get("capacity")
+    
+    if not ip or not rate or not capacity:
+         return jsonify({"status": "error", "msg": "Missing parameters"}), 400
+
+    payload = {
+        "cmd": "set_rate_limit",
+        "ip": ip,
+        "rate": float(rate),
+        "capacity": float(capacity)
+    }
+    resp = send_command(payload)
+    return jsonify(resp)
+
 @app.route('/api/dns', methods=['GET'])
 def get_dns_rules():
     """Read current DNS blocklist."""
@@ -115,6 +135,35 @@ def get_dns_rules():
             return jsonify(data.get("blocked_domains", []))
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.route('/api/test/exec', methods=['POST'])
+def test_network():
+    data = request.json
+    tool = data.get("tool")
+    target = data.get("target")
+    
+    if not tool or not target:
+        return jsonify({"status": "error", "msg": "Missing parameters"}), 400
+
+    cmd = []
+    if tool == "ping":
+        # Ping 4 times, 1s timeout
+        cmd = ["ping", "-c", "4", "-W", "1", target]
+    elif tool == "dns":
+        # Use dig with explicit DNS server 8.8.8.8
+        cmd = ["dig", "@8.8.8.8", "+short", target]
+    elif tool == "http":
+        # Curl headers only
+        cmd = ["curl", "-I", "--connect-timeout", "3", target]
+    else:
+        return jsonify({"status": "error", "msg": "Invalid tool"}), 400
+
+    try:
+        # Run command
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=10)
+        return jsonify({"status": "ok", "output": result.stdout})
+    except Exception as e:
+        return jsonify({"status": "error", "output": str(e)})
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

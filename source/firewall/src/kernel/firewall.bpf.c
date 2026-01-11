@@ -56,6 +56,15 @@ struct {
   __type(key, char[MAX_DNS_NAME_LENGTH]);
   __type(value, struct dns_replace);
 } dns_map SEC(".maps");
+
+// 6. rate_limit_map -> Limit bandwidth per IP
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(max_entries, 1024);
+    __type(key, __u32);          // Source IP (IPv4)
+    __type(value, struct rate_limit_val);
+} rate_limit_map SEC(".maps");
+
 // static function
 
 
@@ -146,6 +155,35 @@ int xdp_block(struct xdp_md *ctx)
         np.family   = AF_INET;
         np.saddr_v4 = ip4->saddr;
         np.protocol = ip4->protocol;
+
+        // --- RATE LIMITING (Token Bucket) ---
+        struct rate_limit_val *rl_val = bpf_map_lookup_elem(&rate_limit_map, &ip4->saddr);
+        if (rl_val) {
+            __u64 now = bpf_ktime_get_ns();
+            __u64 delta = now - rl_val->last_time;
+            
+            // Refill tokens
+            __u64 new_tokens = (delta * rl_val->rate) / 1000000000;
+            
+            if (new_tokens > 0) {
+                 rl_val->tokens += new_tokens;
+                 if (rl_val->tokens > rl_val->capacity) {
+                     rl_val->tokens = rl_val->capacity;
+                 }
+                 rl_val->last_time = now; // Only update time if we refilled or tried to
+            }
+            
+            __u64 pkt_len = (__u64)(data_end - data);
+            
+            if (rl_val->tokens < pkt_len) {
+                 // bpf_printk("Rate limit exceeded for IP: %x", ip4->saddr);
+                 return XDP_DROP;
+            }
+            
+            // Consume tokens using atomic sub to be safe(er)
+            __sync_fetch_and_sub(&rl_val->tokens, pkt_len);
+        }
+        // ------------------------------------
 
         void *l4 = (void *)ip4 + ip4->ihl * 4;//layer 4
         if (l4 + 1 > data_end)
@@ -400,7 +438,7 @@ static inline int read_dns(struct __sk_buff *skb) {
 
             // Get the DNS Header
             
-            struct dns_hdr *dns_hdr = data + sizeof(*eth) + sizeof(*iph) + sizeof(*udph);
+            struct dns_hdr *dns_hdr = data + sizeof(*eth) + ip_hlen + sizeof(*udph);
             if ((void*)(dns_hdr + 1) > data_end) {
                 return 0;  
             }
@@ -442,10 +480,15 @@ static inline int read_dns(struct __sk_buff *skb) {
                 {
                     return 0;
                 }
-                // if(match_suffix(q.name, query_length, "examplecom", 10) == 1) {
-                //     bpf_printk("Blocked DNS query for name [%s]", q.name);
-                //     return TC_ACT_SHOT;
-                // }
+                
+                // --- BLOCKING LOGIC FOR RESPONSES ---
+                __u32 *verdict_r = bpf_map_lookup_elem(&dns_block_map, q.name);
+                if (verdict_r && *verdict_r == 1) {
+                     bpf_printk("BLOCKING DNS Response for: %s", q.name);
+                     return TC_ACT_SHOT;
+                }
+                // ------------------------------------
+
                 struct dns_replace *found_name;
                 // Looking up the domain name in the map
                 if (sizeof(q.name) != 0) {
@@ -457,7 +500,7 @@ static inline int read_dns(struct __sk_buff *skb) {
                     }
                 }
                 // Read the DNS response
-                struct dns_response *ar_hdr = data + sizeof(*eth) + sizeof(*iph) + sizeof(*udph) + sizeof(*dns_hdr) + query_length;
+                struct dns_response *ar_hdr = data + sizeof(*eth) + ip_hlen + sizeof(*udph) + sizeof(*dns_hdr) + query_length;
                 if ((void*)(ar_hdr + 1) > data_end) {
                      return 0;  
                 }
@@ -465,7 +508,7 @@ static inline int read_dns(struct __sk_buff *skb) {
 
                 __u32 ip;
                 
-                __u32 poffset = sizeof(*eth) + sizeof(*iph) + sizeof(*udph) + sizeof(*dns_hdr) + query_length + sizeof(*ar_hdr);
+                __u32 poffset = sizeof(*eth) + ip_hlen + sizeof(*udph) + sizeof(*dns_hdr) + query_length + sizeof(*ar_hdr);
                 
                 // Load data from the socket buffer, poffset starts at the end of the TCP Header
                 int ret = bpf_skb_load_bytes(skb, poffset, &ip, sizeof(ip));

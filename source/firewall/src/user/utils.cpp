@@ -510,3 +510,66 @@ bool to_dns_wire_format(const char *domain, char *out, size_t out_size) {
     // memset remainder to 0?
     return true;
 }
+bool remove_rule_from_json(const char *filepath,
+                           const char *src_ip,
+                           const char *dst_ip,
+                           const char *src_port,
+                           const char *dst_port,
+                           const char *protocol)
+{
+    std::ifstream in(filepath);
+    std::string content((std::istreambuf_iterator<char>(in)),
+                         std::istreambuf_iterator<char>());
+    in.close();
+
+    if (content.empty()) return false;
+
+    cJSON *root = cJSON_Parse(content.c_str());
+    if (!root || !cJSON_IsArray(root)) {
+        if (root) cJSON_Delete(root);
+        return false;
+    }
+
+    int count = cJSON_GetArraySize(root);
+    int idx_to_remove = -1;
+
+    for (int i = 0; i < count; i++) {
+        cJSON *item = cJSON_GetArrayItem(root, i);
+        if (!cJSON_IsObject(item)) continue;
+
+        cJSON *j_src_ip   = cJSON_GetObjectItem(item, "src_ip");
+        cJSON *j_dst_ip   = cJSON_GetObjectItem(item, "dst_ip");
+        cJSON *j_src_port = cJSON_GetObjectItem(item, "src_port");
+        cJSON *j_dst_port = cJSON_GetObjectItem(item, "dst_port");
+        cJSON *j_proto    = cJSON_GetObjectItem(item, "protocol");
+
+        if (!j_src_ip || !j_dst_ip || !j_src_port || !j_dst_port || !j_proto)
+            continue;
+
+        bool match = true;
+        if (strcmp(j_src_ip->valuestring, src_ip) != 0) match = false;
+        if (strcmp(j_dst_ip->valuestring, dst_ip) != 0) match = false;
+        if (strcmp(j_src_port->valuestring, src_port) != 0) match = false;
+        if (strcmp(j_dst_port->valuestring, dst_port) != 0) match = false;
+        if (strcmp(j_proto->valuestring, protocol) != 0) match = false;
+
+        if (match) {
+            idx_to_remove = i;
+            break; 
+        }
+    }
+
+    if (idx_to_remove >= 0) {
+        cJSON_DeleteItemFromArray(root, idx_to_remove);
+        char *out = cJSON_Print(root);
+        std::ofstream outFile(filepath, std::ios::trunc);
+        outFile << out;
+        outFile.close();
+        free(out);
+        cJSON_Delete(root);
+        return true;
+    }
+
+    cJSON_Delete(root);
+    return false;
+}

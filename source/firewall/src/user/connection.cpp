@@ -202,6 +202,11 @@ void UnixServer::handleClient(int client_fd) {
         // key.dst_port = (strcmp(dst_port, "any") == 0) ? 0 : (__u16)atoi(dst_port);
         key.protocol = parse_protocol(protocol);
 
+        remove_rule_from_json("firewall_configs.json",
+                              src_ip, dst_ip,
+                              src_port, dst_port,
+                              protocol);
+
         if (bpf_map__delete_elem(
                 skel_->maps.rules_map,
                 &key, sizeof(key), 0) != 0) {
@@ -229,6 +234,42 @@ void UnixServer::handleClient(int client_fd) {
 
         std::string ok = "{\"status\":\"ok\"}";
         write(client_fd, ok.c_str(), ok.size());
+    }
+    else if (command == "set_rate_limit") {
+        const char *ip_str = cJSON_GetObjectItem(root, "ip")->valuestring;
+        double rate = cJSON_GetObjectItem(root, "rate")->valuedouble;
+        double capacity = cJSON_GetObjectItem(root, "capacity")->valuedouble;
+
+        if (!ip_str) {
+             std::string err = "{\"status\":\"error\",\"msg\":\"missing_params\"}";
+             write(client_fd, err.c_str(), err.size());
+             cJSON_Delete(root);
+             return;
+        }
+
+        __u32 ip_key = 0;
+        if (inet_pton(AF_INET, ip_str, &ip_key) != 1) {
+             std::string err = "{\"status\":\"error\",\"msg\":\"invalid_ip\"}";
+             write(client_fd, err.c_str(), err.size());
+             cJSON_Delete(root);
+             return;
+        }
+
+        struct rate_limit_val val;
+        val.last_time = 0; // Reset time
+        val.tokens = (__u64)capacity; // Start full
+        val.rate = (__u64)rate;
+        val.capacity = (__u64)capacity;
+
+        if (bpf_map__update_elem(skel_->maps.rate_limit_map, &ip_key, sizeof(ip_key), &val, sizeof(val), BPF_ANY) != 0) {
+             perror("Failed to update rate_limit_map");
+             std::string err = "{\"status\":\"error\",\"msg\":\"bpf_update_failed\"}";
+             write(client_fd, err.c_str(), err.size());
+        } else {
+             std::string ok = "{\"status\":\"ok\"}";
+             write(client_fd, ok.c_str(), ok.size());
+             std::cerr << "Set rate limit for " << ip_str << ": " << rate << " Bps, burst: " << capacity << std::endl;
+        }
     }
     else if (command == "block_domain") {
         const char *domain = cJSON_GetObjectItem(root, "domain")->valuestring;

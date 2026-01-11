@@ -128,6 +128,13 @@ struct dns_response {
    uint16_t data_length;           // Độ dài dữ liệu
 } __attribute__((packed));
 
+struct rate_limit_val {
+    __u64 last_time;   // Timestamp of last packet (ns)
+    __u64 tokens;      // Current tokens (bytes)
+    __u64 rate;        // Rate (bytes per second)
+    __u64 capacity;    // Bucket capacity (bytes)
+};
+
 struct dns_query {
     uint16_t record_type;          // Kiểu truy vấn DNS
     uint16_t class_;               // Class truy vấn

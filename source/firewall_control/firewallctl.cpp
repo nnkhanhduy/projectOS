@@ -144,6 +144,17 @@ char *build_block_domain_json(const char *domain) {
     return json_str;
 }
 
+char *build_limit_json(const char *ip, double rate, double capacity) {
+    cJSON *root = cJSON_CreateObject();
+    cJSON_AddStringToObject(root, "cmd", "set_rate_limit");
+    cJSON_AddStringToObject(root, "ip", ip);
+    cJSON_AddNumberToObject(root, "rate", rate);
+    cJSON_AddNumberToObject(root, "capacity", capacity);
+    char *json_str = cJSON_PrintUnformatted(root);
+    cJSON_Delete(root);
+    return json_str;
+}
+
 // ==============================
 // 🔹 CLI usage
 // ==============================
@@ -152,6 +163,8 @@ void print_usage(const char *prog) {
     printf("  %s add --src_ip <ip> --dst_ip <ip> --src_port <p> --dst_port <p> --protocol <tcp|udp> --action <ALLOW|DENY>\n", prog);
     printf("  %s del <rule_id>\n", prog);
     printf("  %s block_domain --domain <domain>\n", prog);
+    printf("  %s block_domain --domain <domain>\n", prog);
+    printf("  %s limit --ip <ip> --rate <bytes_per_sec> --burst <bytes>\n", prog);
     printf("  %s list\n", prog);
 }
 
@@ -213,6 +226,21 @@ int main(int argc, char **argv) {
             return 1;
         }
         json_str = build_block_domain_json(domain);
+
+    } else if(strcmp(cmd, "limit") == 0) {
+        const char *ip = NULL;
+        double rate = 0;
+        double capacity = 0;
+        for (int i = 2; i < argc; i++) {
+             if (!strcmp(argv[i], "--ip") && i + 1 < argc) ip = argv[++i];
+             else if (!strcmp(argv[i], "--rate") && i + 1 < argc) rate = atof(argv[++i]);
+             else if (!strcmp(argv[i], "--burst") && i + 1 < argc) capacity = atof(argv[++i]);
+        }
+        if(!ip || rate <= 0 || capacity <= 0) {
+            print_usage(argv[0]);
+            return 1;
+        }
+        json_str = build_limit_json(ip, rate, capacity);
     } else {
         print_usage(argv[0]);
         return 1;
