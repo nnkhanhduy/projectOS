@@ -165,5 +165,34 @@ def test_network():
     except Exception as e:
         return jsonify({"status": "error", "output": str(e)})
 
+# Anti-DDoS API endpoints
+@app.route('/api/ddos/blacklist', methods=['GET'])
+def get_ddos_blacklist():
+    payload = {"cmd": "get_blacklist"}
+    resp = send_command(payload)
+    return jsonify(resp if isinstance(resp, list) else [])
+
+@app.route('/api/ddos/blacklist/<ip>', methods=['DELETE'])
+def unblock_ddos_ip(ip):
+    payload = {"cmd": "unblock_ip", "ip": ip}
+    resp = send_command(payload)
+    return jsonify(resp)
+
+@app.route('/api/ddos/syn-threshold', methods=['POST'])
+def set_syn_threshold():
+    data = request.json
+    threshold = data.get("threshold", 100)
+    payload = {"cmd": "set_syn_threshold", "threshold": int(threshold)}
+    resp = send_command(payload)
+    return jsonify(resp)
+
+@app.route('/api/ddos/conn-limit', methods=['POST'])
+def set_conn_limit():
+    data = request.json
+    limit = data.get("limit", 100)
+    payload = {"cmd": "set_conn_limit", "limit": int(limit)}
+    resp = send_command(payload)
+    return jsonify(resp)
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
