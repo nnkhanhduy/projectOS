@@ -278,277 +278,282 @@
                     </div>
                 </div>
             </div>
+            <!-- End of 3-column grid -->
 
-            <!-- Anti-DDoS Protection Card -->
-            <div
-                class="card bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6 shadow-xl">
-                <div class="flex items-center gap-3 mb-4">
-                    <span class="text-3xl">🛡️</span>
-                    <h3 class="text-xl font-bold text-white">Anti-DDoS Protection</h3>
-                </div>
-                <div class="space-y-4">
-                    <!-- Thresholds -->
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm text-gray-400 mb-2">SYN Flood Threshold (pkts/sec)</label>
-                            <input v-model="ddos.syn_threshold" type="number" placeholder="100"
-                                class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm">
-                            <button @click="setSynThreshold"
-                                class="mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white text-sm py-1.5 rounded-lg transition">
-                                Update
-                            </button>
-                        </div>
-                        <div>
-                            <label class="block text-sm text-gray-400 mb-2">Connection Limit (conn/sec)</label>
-                            <input v-model="ddos.conn_limit" type="number" placeholder="100"
-                                class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm">
-                            <button @click="setConnLimit"
-                                class="mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white text-sm py-1.5 rounded-lg transition">
-                                Update
-                            </button>
-                        </div>
+            <!-- Anti-DDoS Protection Card (Full Width Row) -->
+            <div class="mt-6">
+                <div
+                    class="card bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6 shadow-xl">
+                    <div class="flex items-center gap-3 mb-4">
+                        <span class="text-3xl">🛡️</span>
+                        <h3 class="text-xl font-bold text-white">Anti-DDoS Protection</h3>
                     </div>
-                    <!-- Blacklist Table -->
-                    <div>
-                        <h4 class="text-sm font-semibold text-gray-300 mb-2">Blacklisted IPs</h4>
-                        <div class="bg-gray-900 rounded-lg border border-gray-700 overflow-hidden">
-                            <table class="w-full text-sm">
-                                <thead class="bg-gray-800">
-                                    <tr>
-                                        <th class="px-3 py-2 text-left text-gray-400">IP</th>
-                                        <th class="px-3 py-2 text-left text-gray-400">Reason</th>
-                                        <th class="px-3 py-2 text-center text-gray-400">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr v-if="ddos.blacklist.length === 0">
-                                        <td colspan="3" class="px-3 py-4 text-center text-gray-500">No blacklisted IPs
-                                        </td>
-                                    </tr>
-                                    <tr v-for="entry in ddos.blacklist" :key="entry.ip"
-                                        class="border-t border-gray-700">
-                                        <td class="px-3 py-2 text-gray-300">{{ entry.ip }}</td>
-                                        <td class="px-3 py-2 text-gray-300">{{ entry.reason == 1 ? 'SYN Flood' : 'Conn
-                                            Limit' }}</td>
-                                        <td class="px-3 py-2 text-center">
-                                            <button @click="unblockIP(entry.ip)"
-                                                class="bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1 rounded transition">
-                                                Unblock
-                                            </button>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                    <div class="space-y-4">
+                        <!-- Thresholds -->
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm text-gray-400 mb-2">SYN Flood Threshold (pkts/sec)</label>
+                                <input v-model="ddos.syn_threshold" type="number" placeholder="100"
+                                    class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm">
+                                <button @click="setSynThreshold"
+                                    class="mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white text-sm py-1.5 rounded-lg transition">
+                                    Update
+                                </button>
+                            </div>
+                            <div>
+                                <label class="block text-sm text-gray-400 mb-2">Connection Limit (conn/sec)</label>
+                                <input v-model="ddos.conn_limit" type="number" placeholder="100"
+                                    class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm">
+                                <button @click="setConnLimit"
+                                    class="mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white text-sm py-1.5 rounded-lg transition">
+                                    Update
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Blacklist Table -->
+                        <div>
+                            <h4 class="text-sm font-semibold text-gray-300 mb-2">Blacklisted IPs</h4>
+                            <div class="bg-gray-900 rounded-lg border border-gray-700 overflow-hidden">
+                                <table class="w-full text-sm">
+                                    <thead class="bg-gray-800">
+                                        <tr>
+                                            <th class="px-3 py-2 text-left text-gray-400">IP</th>
+                                            <th class="px-3 py-2 text-left text-gray-400">Reason</th>
+                                            <th class="px-3 py-2 text-center text-gray-400">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% raw %}
+                                        <tr v-if="ddos.blacklist.length === 0">
+                                            <td colspan="3" class="px-3 py-4 text-center text-gray-500">No blacklisted
+                                                IPs
+                                            </td>
+                                        </tr>
+                                        <tr v-for="entry in ddos.blacklist" :key="entry.ip"
+                                            class="border-t border-gray-700">
+                                            <td class="px-3 py-2 text-gray-300">{{ entry.ip }}</td>
+                                            <td class="px-3 py-2 text-gray-300">{{ entry.reason == 1 ? 'SYN Flood' :
+                                                'Conn Limit' }}</td>
+                                            <td class="px-3 py-2 text-center">
+                                                <button @click="unblockIP(entry.ip)"
+                                                    class="bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1 rounded transition">
+                                                    Unblock
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        {% endraw %}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
+            <!-- End Anti-DDoS Card -->
         </div>
-    </div>
-    </div>
 
-    <script>
-        const { createApp } = Vue
+        <script>
+            const { createApp } = Vue
 
-        createApp({
-            data() {
-                return {
-                    rules: [],
-                    dnsRules: [],
-                    connected: false,
-                    loading: false,
-                    newRule: {
-                        src_ip: 'any',
-                        dst_ip: 'any',
-                        src_port: 'any',
-                        dst_port: 'any',
-                        protocol: 'any',
-                        action: 'DENY'
-                    },
-                    newDomain: '',
-                    limit: {
-                        ip: '',
-                        rate: '',
-                        capacity: ''
-                    },
-                    test: {
-                        tool: 'ping',
-                        target: '',
+            createApp({
+                data() {
+                    return {
+                        rules: [],
+                        dnsRules: [],
+                        connected: false,
                         loading: false,
-                        output: ''
+                        newRule: {
+                            src_ip: 'any',
+                            dst_ip: 'any',
+                            src_port: 'any',
+                            dst_port: 'any',
+                            protocol: 'any',
+                            action: 'DENY'
+                        },
+                        newDomain: '',
+                        limit: {
+                            ip: '',
+                            rate: '',
+                            capacity: ''
+                        },
+                        test: {
+                            tool: 'ping',
+                            target: '',
+                            loading: false,
+                            output: ''
+                        },
+                        ddos: {
+                            syn_threshold: 100,
+                            conn_limit: 100,
+                            blacklist: []
+                        }
+                    }
+                },
+                methods: {
+                    async fetchRules() {
+                        try {
+                            const res = await fetch('/api/rules');
+                            this.rules = await res.json();
+                            this.connected = true; // Assume connected if fetch works
+                        } catch (e) {
+                            console.error(e);
+                            this.connected = false;
+                        }
                     },
-                    ddos: {
-                        syn_threshold: 100,
-                        conn_limit: 100,
-                        blacklist: []
+                    async fetchDNS() {
+                        try {
+                            const res = await fetch('/api/dns');
+                            this.dnsRules = await res.json();
+                        } catch (e) { console.error(e); }
+                    },
+                    async addRule() {
+                        this.loading = true;
+                        try {
+                            const res = await fetch('/api/rules', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(this.newRule)
+                            });
+                            const data = await res.json();
+                            if (data.status === 'ok') {
+                                await this.fetchRules();
+                                // Reset form (optional)
+                            } else {
+                                alert('Error: ' + data.msg);
+                            }
+                        } catch (e) {
+                            alert('Network Error');
+                        } finally {
+                            this.loading = false;
+                        }
+                    },
+                    async deleteRule(rule) {
+                        if (!confirm('Delete this rule?')) return;
+                        try {
+                            const res = await fetch('/api/rules', {
+                                method: 'DELETE',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(rule)
+                            });
+                            const data = await res.json();
+                            if (data.status === 'ok') {
+                                await this.fetchRules();
+                            } else {
+                                alert('Error: ' + data.msg);
+                            }
+                        } catch (e) { alert('Network Error'); }
+                    },
+                    async blockDomain() {
+                        if (!this.newDomain) return;
+                        try {
+                            const res = await fetch('/api/dns/block', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ domain: this.newDomain })
+                            });
+                            const data = await res.json();
+                            if (data.status === 'ok') {
+                                this.newDomain = '';
+                                await this.fetchDNS();
+                            } else {
+                                alert('Error: ' + data.msg);
+                            }
+                        } catch (e) { alert('Network Error'); }
+                    },
+                    async setLimit() {
+                        try {
+                            const res = await fetch('/api/limit', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(this.limit)
+                            });
+                            const data = await res.json();
+                            if (data.status === 'ok') {
+                                alert('Rate limit set successfully');
+                                this.limit.ip = '';
+                                this.limit.rate = '';
+                                this.limit.capacity = '';
+                            } else {
+                                alert('Error: ' + data.msg);
+                            }
+                        } catch (e) { alert('Network Error'); }
+                    },
+                    async runTest() {
+                        if (!this.test.target) return;
+                        this.test.loading = true;
+                        this.test.output = 'Running...';
+                        try {
+                            const res = await fetch('/api/test/exec', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ tool: this.test.tool, target: this.test.target })
+                            });
+                            const data = await res.json();
+                            if (data.status === 'ok') {
+                                this.test.output = data.output;
+                            } else {
+                                this.test.output = 'Error: ' + data.msg + '\n' + (data.output || '');
+                            }
+                        } catch (e) {
+                            this.test.output = 'Network Error';
+                        } finally {
+                            this.test.loading = false;
+                        }
+                    },
+                    // Anti-DDoS methods
+                    async setSynThreshold() {
+                        try {
+                            const res = await fetch('/api/ddos/syn-threshold', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ threshold: this.ddos.syn_threshold })
+                            });
+                            const data = await res.json();
+                            if (data.status === 'ok') alert('SYN threshold updated!');
+                            else alert('Error: ' + data.msg);
+                        } catch (e) { alert('Network Error'); }
+                    },
+                    async setConnLimit() {
+                        try {
+                            const res = await fetch('/api/ddos/conn-limit', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ limit: this.ddos.conn_limit })
+                            });
+                            const data = await res.json();
+                            if (data.status === 'ok') alert('Connection limit updated!');
+                            else alert('Error: ' + data.msg);
+                        } catch (e) { alert('Network Error'); }
+                    },
+                    async fetchBlacklist() {
+                        try {
+                            const res = await fetch('/api/ddos/blacklist');
+                            this.ddos.blacklist = await res.json();
+                        } catch (e) { console.error('Failed to fetch blacklist', e); }
+                    },
+                    async unblockIP(ip) {
+                        if (!confirm(`Unblock ${ip}?`)) return;
+                        try {
+                            const res = await fetch(`/api/ddos/blacklist/${ip}`, { method: 'DELETE' });
+                            const data = await res.json();
+                            if (data.status === 'ok') {
+                                await this.fetchBlacklist();
+                                alert('IP unblocked!');
+                            } else {
+                                alert('Error: ' + data.msg);
+                            }
+                        } catch (e) { alert('Network Error'); }
                     }
+                },
+                mounted() {
+                    this.fetchRules();
+                    this.fetchDNS();
+                    this.fetchBlacklist();
+                    setInterval(this.fetchRules, 5000); // Polling update
+                    setInterval(this.fetchBlacklist, 5000); // Poll blacklist
                 }
-            },
-            methods: {
-                async fetchRules() {
-                    try {
-                        const res = await fetch('/api/rules');
-                        this.rules = await res.json();
-                        this.connected = true; // Assume connected if fetch works
-                    } catch (e) {
-                        console.error(e);
-                        this.connected = false;
-                    }
-                },
-                async fetchDNS() {
-                    try {
-                        const res = await fetch('/api/dns');
-                        this.dnsRules = await res.json();
-                    } catch (e) { console.error(e); }
-                },
-                async addRule() {
-                    this.loading = true;
-                    try {
-                        const res = await fetch('/api/rules', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(this.newRule)
-                        });
-                        const data = await res.json();
-                        if (data.status === 'ok') {
-                            await this.fetchRules();
-                            // Reset form (optional)
-                        } else {
-                            alert('Error: ' + data.msg);
-                        }
-                    } catch (e) {
-                        alert('Network Error');
-                    } finally {
-                        this.loading = false;
-                    }
-                },
-                async deleteRule(rule) {
-                    if (!confirm('Delete this rule?')) return;
-                    try {
-                        const res = await fetch('/api/rules', {
-                            method: 'DELETE',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(rule)
-                        });
-                        const data = await res.json();
-                        if (data.status === 'ok') {
-                            await this.fetchRules();
-                        } else {
-                            alert('Error: ' + data.msg);
-                        }
-                    } catch (e) { alert('Network Error'); }
-                },
-                async blockDomain() {
-                    if (!this.newDomain) return;
-                    try {
-                        const res = await fetch('/api/dns/block', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ domain: this.newDomain })
-                        });
-                        const data = await res.json();
-                        if (data.status === 'ok') {
-                            this.newDomain = '';
-                            await this.fetchDNS();
-                        } else {
-                            alert('Error: ' + data.msg);
-                        }
-                    } catch (e) { alert('Network Error'); }
-                },
-                async setLimit() {
-                    try {
-                        const res = await fetch('/api/limit', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(this.limit)
-                        });
-                        const data = await res.json();
-                        if (data.status === 'ok') {
-                            alert('Rate limit set successfully');
-                            this.limit.ip = '';
-                            this.limit.rate = '';
-                            this.limit.capacity = '';
-                        } else {
-                            alert('Error: ' + data.msg);
-                        }
-                    } catch (e) { alert('Network Error'); }
-                },
-                async runTest() {
-                    if (!this.test.target) return;
-                    this.test.loading = true;
-                    this.test.output = 'Running...';
-                    try {
-                        const res = await fetch('/api/test/exec', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ tool: this.test.tool, target: this.test.target })
-                        });
-                        const data = await res.json();
-                        if (data.status === 'ok') {
-                            this.test.output = data.output;
-                        } else {
-                            this.test.output = 'Error: ' + data.msg + '\n' + (data.output || '');
-                        }
-                    } catch (e) {
-                        this.test.output = 'Network Error';
-                    } finally {
-                        this.test.loading = false;
-                    }
-                },
-                // Anti-DDoS methods
-                async setSynThreshold() {
-                    try {
-                        const res = await fetch('/api/ddos/syn-threshold', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ threshold: this.ddos.syn_threshold })
-                        });
-                        const data = await res.json();
-                        if (data.status === 'ok') alert('SYN threshold updated!');
-                        else alert('Error: ' + data.msg);
-                    } catch (e) { alert('Network Error'); }
-                },
-                async setConnLimit() {
-                    try {
-                        const res = await fetch('/api/ddos/conn-limit', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ limit: this.ddos.conn_limit })
-                        });
-                        const data = await res.json();
-                        if (data.status === 'ok') alert('Connection limit updated!');
-                        else alert('Error: ' + data.msg);
-                    } catch (e) { alert('Network Error'); }
-                },
-                async fetchBlacklist() {
-                    try {
-                        const res = await fetch('/api/ddos/blacklist');
-                        this.ddos.blacklist = await res.json();
-                    } catch (e) { console.error('Failed to fetch blacklist', e); }
-                },
-                async unblockIP(ip) {
-                    if (!confirm(`Unblock ${ip}?`)) return;
-                    try {
-                        const res = await fetch(`/api/ddos/blacklist/${ip}`, { method: 'DELETE' });
-                        const data = await res.json();
-                        if (data.status === 'ok') {
-                            await this.fetchBlacklist();
-                            alert('IP unblocked!');
-                        } else {
-                            alert('Error: ' + data.msg);
-                        }
-                    } catch (e) { alert('Network Error'); }
-                }
-            },
-            mounted() {
-                this.fetchRules();
-                this.fetchDNS();
-                this.fetchBlacklist();
-                setInterval(this.fetchRules, 5000); // Polling update
-                setInterval(this.fetchBlacklist, 5000); // Poll blacklist
-            }
-        }).mount('#app')
-    </script>
+            }).mount('#app')
+        </script>
 </body>
 
 </html>
