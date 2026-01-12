@@ -65,6 +65,30 @@ struct {
     __type(value, struct rate_limit_val);
 } rate_limit_map SEC(".maps");
 
+// 7. syn_flood_map -> Track SYN flood per IP
+struct {
+    __uint(type, BPF_MAP_TYPE_LRU_HASH);
+    __uint(max_entries, 10000);
+    __type(key, __u32);          // Source IP (IPv4)
+    __type(value, struct syn_flood_tracker);
+} syn_flood_map SEC(".maps");
+
+// 8. connection_map -> Track connections per IP
+struct {
+    __uint(type, BPF_MAP_TYPE_LRU_HASH);
+    __uint(max_entries, 10000);
+    __type(key, __u32);          // Source IP (IPv4)
+    __type(value, struct connection_tracker);
+} connection_map SEC(".maps");
+
+// 9. auto_blacklist_map -> Automatic IP blacklist
+struct {
+    __uint(type, BPF_MAP_TYPE_LRU_HASH);
+    __uint(max_entries, 5000);
+    __type(key, __u32);          // Source IP (IPv4)
+    __type(value, struct ddos_blacklist_entry);
+} auto_blacklist_map SEC(".maps");
+
 // static function
 
 
@@ -155,6 +179,115 @@ int xdp_block(struct xdp_md *ctx)
         np.family   = AF_INET;
         np.saddr_v4 = ip4->saddr;
         np.protocol = ip4->protocol;
+
+        // --- ANTI-DDOS: AUTO-BLACKLIST CHECK (Highest Priority) ---
+        struct ddos_blacklist_entry *bl = bpf_map_lookup_elem(&auto_blacklist_map, &ip4->saddr);
+        if (bl) {
+            __u64 now = bpf_ktime_get_ns();
+            if (now < bl->blocked_until) {
+                // Vẫn đang bị chặn
+                bpf_printk("IP %x is blacklisted (reason: %d)", ip4->saddr, bl->reason);
+                return XDP_DROP;
+            }
+            // Đã hết hạn, xóa khỏi blacklist
+            bpf_map_delete_elem(&auto_blacklist_map, &ip4->saddr);
+        }
+        // -----------------------------------------------------------
+
+        // --- ANTI-DDOS: SYN FLOOD DETECTION ---
+        void *l4_temp = (void *)ip4 + ip4->ihl * 4;
+        if (l4_temp + sizeof(struct tcphdr) <= data_end && ip4->protocol == IPPROTO_TCP) {
+            struct tcphdr *th_temp = l4_temp;
+            
+            // Kiểm tra gói SYN (SYN=1, ACK=0)
+            if (th_temp->syn && !th_temp->ack) {
+                bpf_printk("DEBUG: SYN packet detected from %x", ip4->saddr);
+                struct syn_flood_tracker *sft = bpf_map_lookup_elem(&syn_flood_map, &ip4->saddr);
+                
+                if (!sft) {
+                    // SYN đầu tiên từ IP này, tạo tracker
+                    struct syn_flood_tracker new_sft = {
+                        .last_reset_time = bpf_ktime_get_ns(),
+                        .syn_count = 1,
+                        .threshold = 100  // Mặc định: 100 SYN/giây
+                    };
+                    bpf_map_update_elem(&syn_flood_map, &ip4->saddr, &new_sft, BPF_ANY);
+                } else {
+                    __u64 now = bpf_ktime_get_ns();
+                    __u64 elapsed = now - sft->last_reset_time;
+                    
+                    // Reset bộ đếm mỗi giây (1,000,000,000 ns)
+                    if (elapsed > 1000000000ULL) {
+                        sft->syn_count = 1;
+                        sft->last_reset_time = now;
+                        bpf_map_update_elem(&syn_flood_map, &ip4->saddr, sft, BPF_ANY);
+                    } else {
+                        sft->syn_count++;
+                        
+                        // Vượt ngưỡng -> Thêm vào blacklist
+                        if (sft->syn_count > sft->threshold) {
+                            struct ddos_blacklist_entry bl_entry = {
+                                .blocked_until = now + (60 * 1000000000ULL),  // Chặn 60 giây
+                                .violation_count = 1,
+                                .reason = 1  // 1 = SYN flood
+                            };
+                            bpf_map_update_elem(&auto_blacklist_map, &ip4->saddr, &bl_entry, BPF_ANY);
+                            bpf_printk("SYN FLOOD detected from %x - Blacklisted for 60s", ip4->saddr);
+                            return XDP_DROP;
+                        }
+                        bpf_map_update_elem(&syn_flood_map, &ip4->saddr, sft, BPF_ANY);
+                    }
+                }
+            }
+        }
+        // ---------------------------------------
+
+        // --- ANTI-DDOS: CONNECTION TRACKING ---
+        // Đơn giản hóa: Đếm số SYN packets (kết nối mới) trong 1 giây
+        if (l4_temp + sizeof(struct tcphdr) <= data_end && ip4->protocol == IPPROTO_TCP) {
+            struct tcphdr *th_temp = l4_temp;
+            
+            // Chỉ đếm SYN packets (kết nối mới)
+            if (th_temp->syn && !th_temp->ack) {
+                struct connection_tracker *ct = bpf_map_lookup_elem(&connection_map, &ip4->saddr);
+                
+                if (!ct) {
+                    // Kết nối đầu tiên từ IP này
+                    struct connection_tracker new_ct = {
+                        .active_connections = 1,
+                        .max_connections = 100,  // Mặc định: 100 kết nối
+                        .last_cleanup_time = bpf_ktime_get_ns()
+                    };
+                    bpf_map_update_elem(&connection_map, &ip4->saddr, &new_ct, BPF_ANY);
+                } else {
+                    __u64 now = bpf_ktime_get_ns();
+                    __u64 elapsed = now - ct->last_cleanup_time;
+                    
+                    // Reset counter mỗi giây
+                    if (elapsed > 1000000000ULL) {
+                        ct->active_connections = 1;
+                        ct->last_cleanup_time = now;
+                        bpf_map_update_elem(&connection_map, &ip4->saddr, ct, BPF_ANY);
+                    } else {
+                        ct->active_connections++;
+                        
+                        // Vượt giới hạn -> Blacklist
+                        if (ct->active_connections > ct->max_connections) {
+                            struct ddos_blacklist_entry bl_entry = {
+                                .blocked_until = now + (30 * 1000000000ULL),  // Chặn 30 giây
+                                .violation_count = 1,
+                                .reason = 2  // 2 = Connection limit exceeded
+                            };
+                            bpf_map_update_elem(&auto_blacklist_map, &ip4->saddr, &bl_entry, BPF_ANY);
+                            bpf_printk("Connection limit exceeded for %x - Blacklisted for 30s", ip4->saddr);
+                            return XDP_DROP;
+                        }
+                        bpf_map_update_elem(&connection_map, &ip4->saddr, ct, BPF_ANY);
+                    }
+                }
+            }
+        }
+        // ---------------------------------------
 
         // --- RATE LIMITING (Token Bucket) ---
         struct rate_limit_val *rl_val = bpf_map_lookup_elem(&rate_limit_map, &ip4->saddr);

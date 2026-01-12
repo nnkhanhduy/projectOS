@@ -135,6 +135,28 @@ struct rate_limit_val {
     __u64 capacity;    // Bucket capacity (bytes)
 };
 
+// Anti-DDoS: SYN flood tracking
+struct syn_flood_tracker {
+    __u64 last_reset_time;    // Thời điểm reset bộ đếm lần cuối
+    __u32 syn_count;          // Số gói SYN trong khung thời gian hiện tại
+    __u32 threshold;          // Số SYN/giây tối đa cho phép
+};
+
+// Anti-DDoS: Connection tracking
+struct connection_tracker {
+    __u32 active_connections; // Số kết nối đang hoạt động
+    __u32 max_connections;    // Số kết nối tối đa cho phép
+    __u64 last_cleanup_time;  // Timestamp cleanup lần cuối
+};
+
+// Anti-DDoS: Blacklist entry
+struct ddos_blacklist_entry {
+    __u64 blocked_until;      // Timestamp khi nào mở chặn
+    __u32 violation_count;    // Số lần vi phạm
+    __u8 reason;              // Mã lý do (1=SYN flood, 2=vượt giới hạn kết nối)
+    __u8 padding[3];          // Padding for alignment
+};
+
 struct dns_query {
     uint16_t record_type;          // Kiểu truy vấn DNS
     uint16_t class_;               // Class truy vấn
