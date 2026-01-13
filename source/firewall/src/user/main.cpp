@@ -98,7 +98,7 @@ static void sig_handler(int sig) {
 }
 
 // Gọi các hàm load BPF, attach XDP/TC và khởi động thread
-int main() {
+int main(int argc, char **argv) {
     CallbackContext rb_ctx;
     pthread_t firewall_thread_id;
     struct firewall_bpf *skel_firewall = NULL;
@@ -123,36 +123,50 @@ int main() {
 
 
     // Load and verify BPF program - LOAD VÀ VERIFY CHƯƠNG TRÌNH BPF VÀO KERNEL
+    // Load and verify BPF program
     skel_firewall = firewall_bpf__open_and_load();
-    UnixServer server(IPC_PATH, skel_firewall, &exiting);
     if (!skel_firewall) {
         std::cerr << "Failed to open and load BPF skeleton" << std::endl;
-        goto cleanup;
+        return 1;
     }
+
+    UnixServer server(IPC_PATH, skel_firewall, &exiting);
+
+    // Load initial rules
     err_all = load_firewall_rules_into_map(skel_firewall, bpf_map__fd(skel_firewall->maps.rules_map), "firewall_configs.json");
+    if (err_all) fprintf(stderr, "Warning: Failed to load firewall rules\n");
+
     load_ioc_ip_into_kernel_map(skel_firewall, "ioc_ip.txt");
     load_dns_ioc_map(skel_firewall, "ioc_dns.json");
-    // Attach XDP program - GẮN CHƯƠNG TRÌNH XDP VÀO CARD MẠNG
-    // Attach XDP program - GẮN CHƯƠNG TRÌNH XDP VÀO CARD MẠNG
-    // err_all = firewall_bpf__attach(skel_firewall); // Auto-attach is failing or not flexible enough
-    
-    all_val = get_all_default_ifindexes();
-    if (all_val.empty()) {
-        std::cerr << "No specific interface (looking for default route)... trying fallback or manual selection needed." << std::endl; 
-        // Fallback: try common interfaces or just fail
-        // For now, let's just create a list of candidates if default route fails, or error out.
-        // But the user error showed "Found default route on eth0", so get_all_default_ifindexes works!
-        // It's just that main.cpp wasn't using it correctly.
-        ifindex = if_nametoindex("eth0"); // Last resort fallback
+
+    // Interface selection Logic
+    if (argc > 1) {
+        strncpy(ifname, argv[1], IF_NAMESIZE - 1);
+        ifindex = if_nametoindex(ifname);
         if (ifindex == 0) {
-             std::cerr << "Failed to find suitable interface." << std::endl;
-             goto cleanup;
+            std::cerr << "Invalid interface name argument: " << ifname << std::endl;
+            goto cleanup;
         }
     } else {
-        ifindex = all_val[0];
+        // Auto-detect default interface
+        all_val = get_all_default_ifindexes();
+        if (!all_val.empty()) {
+            ifindex = all_val[0];
+            if_indextoname(ifindex, ifname);
+        } else {
+            // Fallback
+            ifindex = if_nametoindex("eth0");
+            if (ifindex > 0) strcpy(ifname, "eth0");
+            else {
+                ifindex = if_nametoindex("lo");
+                if (ifindex > 0) strcpy(ifname, "lo");
+                else {
+                    std::cerr << "Failed to detect any suitable interface." << std::endl;
+                    goto cleanup;
+                }
+            }
+        }
     }
-    
-    if_indextoname(ifindex, ifname);
     std::cout << "Selected interface: " << ifname << " (index: " << ifindex << ")" << std::endl;
 
     xdp_prog_fd = bpf_program__fd(skel_firewall->progs.xdp_block);

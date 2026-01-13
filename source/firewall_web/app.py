@@ -105,24 +105,7 @@ def block_domain():
     resp = send_command(payload)
     return jsonify(resp)
 
-@app.route('/api/limit', methods=['POST'])
-def set_rate_limit():
-    data = request.json
-    ip = data.get("ip")
-    rate = data.get("rate")
-    capacity = data.get("capacity")
-    
-    if not ip or not rate or not capacity:
-         return jsonify({"status": "error", "msg": "Missing parameters"}), 400
 
-    payload = {
-        "cmd": "set_rate_limit",
-        "ip": ip,
-        "rate": float(rate),
-        "capacity": float(capacity)
-    }
-    resp = send_command(payload)
-    return jsonify(resp)
 
 @app.route('/api/dns', methods=['GET'])
 def get_dns_rules():

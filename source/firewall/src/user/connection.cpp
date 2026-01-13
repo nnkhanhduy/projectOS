@@ -7,6 +7,16 @@
 #include <errno.h>
 #include <unistd.h> 
 #include <sys/stat.h>
+#include <bpf/bpf.h> // Required for bpf_map_get_next_key, bpf_map_lookup_elem
+#include <arpa/inet.h> // inet_ntop
+
+// Define struct locally to match kernel
+struct ddos_blacklist_entry {
+    __u64 blocked_until;
+    __u32 violation_count;
+    __u8 reason;
+    __u8 padding[3];
+};
 
 /* Xử lý giao tiếp IPC (Inter-Process Communication) qua Unix Domain Socket.
 Chức năng: Tạo socket server tại /var/run/firewall.sock. Khi nhận được JSON
@@ -235,42 +245,7 @@ void UnixServer::handleClient(int client_fd) {
         std::string ok = "{\"status\":\"ok\"}";
         write(client_fd, ok.c_str(), ok.size());
     }
-    else if (command == "set_rate_limit") {
-        const char *ip_str = cJSON_GetObjectItem(root, "ip")->valuestring;
-        double rate = cJSON_GetObjectItem(root, "rate")->valuedouble;
-        double capacity = cJSON_GetObjectItem(root, "capacity")->valuedouble;
 
-        if (!ip_str) {
-             std::string err = "{\"status\":\"error\",\"msg\":\"missing_params\"}";
-             write(client_fd, err.c_str(), err.size());
-             cJSON_Delete(root);
-             return;
-        }
-
-        __u32 ip_key = 0;
-        if (inet_pton(AF_INET, ip_str, &ip_key) != 1) {
-             std::string err = "{\"status\":\"error\",\"msg\":\"invalid_ip\"}";
-             write(client_fd, err.c_str(), err.size());
-             cJSON_Delete(root);
-             return;
-        }
-
-        struct rate_limit_val val;
-        val.last_time = 0; // Reset time
-        val.tokens = (__u64)capacity; // Start full
-        val.rate = (__u64)rate;
-        val.capacity = (__u64)capacity;
-
-        if (bpf_map__update_elem(skel_->maps.rate_limit_map, &ip_key, sizeof(ip_key), &val, sizeof(val), BPF_ANY) != 0) {
-             perror("Failed to update rate_limit_map");
-             std::string err = "{\"status\":\"error\",\"msg\":\"bpf_update_failed\"}";
-             write(client_fd, err.c_str(), err.size());
-        } else {
-             std::string ok = "{\"status\":\"ok\"}";
-             write(client_fd, ok.c_str(), ok.size());
-             std::cerr << "Set rate limit for " << ip_str << ": " << rate << " Bps, burst: " << capacity << std::endl;
-        }
-    }
     else if (command == "block_domain") {
         const char *domain = cJSON_GetObjectItem(root, "domain")->valuestring;
         if (!domain) {
@@ -303,9 +278,43 @@ void UnixServer::handleClient(int client_fd) {
     }
     // Anti-DDoS: Get blacklist
     else if (command == "get_blacklist") {
-        // TODO: Implement proper iteration - for now return empty array
-        // Map iteration requires syscall which is complex
         cJSON *blacklist_array = cJSON_CreateArray();
+        
+        __u32 key = 0;
+        __u32 next_key = 0; // Initialize next_key
+        int map_fd = bpf_map__fd(skel_->maps.auto_blacklist_map);
+        
+        // Start iteration from NULL key (generic way for hash map)
+        // Note: For array map we iterate indices, for hash map we use get_next_key
+        // Since we don't know the first key, we start loop differently or use a loop that handles start
+        
+        // Proper way to iterate BPF map in libbpf
+        __u32 *cur_key = NULL; 
+        
+        while (bpf_map_get_next_key(map_fd, cur_key, &next_key) == 0) {
+            struct ddos_blacklist_entry entry;
+            
+            if (bpf_map_lookup_elem(map_fd, &next_key, &entry) == 0) {
+                cJSON *item = cJSON_CreateObject();
+                
+                char ip_str[INET_ADDRSTRLEN];
+                struct in_addr addr;
+                addr.s_addr = next_key;
+                inet_ntop(AF_INET, &addr, ip_str, sizeof(ip_str));
+                
+                cJSON_AddStringToObject(item, "ip", ip_str);
+                cJSON_AddNumberToObject(item, "reason", entry.reason);
+                cJSON_AddNumberToObject(item, "blocked_until", (double)entry.blocked_until);
+                cJSON_AddNumberToObject(item, "violation_count", entry.violation_count);
+                
+                cJSON_AddItemToArray(blacklist_array, item);
+            }
+            
+            // Move to next key
+            key = next_key;
+            cur_key = &key;
+        }
+        
         char *response = cJSON_Print(blacklist_array);
         write(client_fd, response, strlen(response));
         free(response);

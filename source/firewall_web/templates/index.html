@@ -172,7 +172,7 @@
             </div>
 
             <!-- ZONE 2: TOOLS & UTILITIES -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
                 <!-- Col 1: DNS Control -->
                 <div class="space-y-6">
@@ -206,41 +206,6 @@
                     </div>
                 </div>
 
-                <!-- Col 2: Bandwidth Limit -->
-                <div>
-                    <div class="bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-700 h-full">
-                        <h2 class="text-xl font-semibold mb-4 text-white flex items-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-blue-400" fill="none"
-                                viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M13 10V3L4 14h7v7l9-11h-7z" />
-                            </svg>
-                            Bandwidth Limiting
-                        </h2>
-                        <form @submit.prevent="setLimit" class="space-y-4">
-                            <div>
-                                <label class="block text-xs font-medium text-gray-400 mb-1">Target IP</label>
-                                <input v-model="limit.ip" type="text" placeholder="1.2.3.4"
-                                    class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-xs font-medium text-gray-400 mb-1">Rate (Bytes/s)</label>
-                                    <input v-model="limit.rate" type="number" placeholder="1024"
-                                        class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-medium text-gray-400 mb-1">Burst (Bytes)</label>
-                                    <input v-model="limit.capacity" type="number" placeholder="2048"
-                                        class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
-                                </div>
-                            </div>
-                            <button type="submit"
-                                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg transition shadow-md">Set
-                                Limit</button>
-                        </form>
-                    </div>
-                </div>
 
                 <!-- Col 3: Diagnostics -->
                 <div>
@@ -370,12 +335,7 @@
                             protocol: 'any',
                             action: 'DENY'
                         },
-                        newDomain: '',
-                        limit: {
-                            ip: '',
-                            rate: '',
-                            capacity: ''
-                        },
+
                         test: {
                             tool: 'ping',
                             target: '',
@@ -460,24 +420,7 @@
                             }
                         } catch (e) { alert('Network Error'); }
                     },
-                    async setLimit() {
-                        try {
-                            const res = await fetch('/api/limit', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify(this.limit)
-                            });
-                            const data = await res.json();
-                            if (data.status === 'ok') {
-                                alert('Rate limit set successfully');
-                                this.limit.ip = '';
-                                this.limit.rate = '';
-                                this.limit.capacity = '';
-                            } else {
-                                alert('Error: ' + data.msg);
-                            }
-                        } catch (e) { alert('Network Error'); }
-                    },
+
                     async runTest() {
                         if (!this.test.target) return;
                         this.test.loading = true;
@@ -528,7 +471,9 @@
                     async fetchBlacklist() {
                         try {
                             const res = await fetch('/api/ddos/blacklist');
-                            this.ddos.blacklist = await res.json();
+                            const data = await res.json();
+                            console.log("Blacklist data:", data);
+                            this.ddos.blacklist = data;
                         } catch (e) { console.error('Failed to fetch blacklist', e); }
                     },
                     async unblockIP(ip) {

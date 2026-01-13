@@ -57,13 +57,7 @@ struct {
   __type(value, struct dns_replace);
 } dns_map SEC(".maps");
 
-// 6. rate_limit_map -> Limit bandwidth per IP
-struct {
-    __uint(type, BPF_MAP_TYPE_HASH);
-    __uint(max_entries, 1024);
-    __type(key, __u32);          // Source IP (IPv4)
-    __type(value, struct rate_limit_val);
-} rate_limit_map SEC(".maps");
+
 
 // 7. syn_flood_map -> Track SYN flood per IP
 struct {
@@ -199,9 +193,12 @@ int xdp_block(struct xdp_md *ctx)
         if (l4_temp + sizeof(struct tcphdr) <= data_end && ip4->protocol == IPPROTO_TCP) {
             struct tcphdr *th_temp = l4_temp;
             
+            // Debug logging for TCP flags
+            bpf_printk("TCP Packet from: %pI4 Flags: SYN=%d ACK=%d", &ip4->saddr, th_temp->syn, th_temp->ack);
+
             // Kiểm tra gói SYN (SYN=1, ACK=0)
             if (th_temp->syn && !th_temp->ack) {
-                bpf_printk("DEBUG: SYN packet detected from %x", ip4->saddr);
+                bpf_printk("Potential SYN flood from IP: %pI4", &ip4->saddr);
                 struct syn_flood_tracker *sft = bpf_map_lookup_elem(&syn_flood_map, &ip4->saddr);
                 
                 if (!sft) {
@@ -289,33 +286,7 @@ int xdp_block(struct xdp_md *ctx)
         }
         // ---------------------------------------
 
-        // --- RATE LIMITING (Token Bucket) ---
-        struct rate_limit_val *rl_val = bpf_map_lookup_elem(&rate_limit_map, &ip4->saddr);
-        if (rl_val) {
-            __u64 now = bpf_ktime_get_ns();
-            __u64 delta = now - rl_val->last_time;
-            
-            // Refill tokens
-            __u64 new_tokens = (delta * rl_val->rate) / 1000000000;
-            
-            if (new_tokens > 0) {
-                 rl_val->tokens += new_tokens;
-                 if (rl_val->tokens > rl_val->capacity) {
-                     rl_val->tokens = rl_val->capacity;
-                 }
-                 rl_val->last_time = now; // Only update time if we refilled or tried to
-            }
-            
-            __u64 pkt_len = (__u64)(data_end - data);
-            
-            if (rl_val->tokens < pkt_len) {
-                 // bpf_printk("Rate limit exceeded for IP: %x", ip4->saddr);
-                 return XDP_DROP;
-            }
-            
-            // Consume tokens using atomic sub to be safe(er)
-            __sync_fetch_and_sub(&rl_val->tokens, pkt_len);
-        }
+
         // ------------------------------------
 
         void *l4 = (void *)ip4 + ip4->ihl * 4;//layer 4
